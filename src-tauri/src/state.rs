@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::Serialize;
 
 use crate::features::champ_select::ChampSelectView;
+use crate::features::icons::ChampionIcons;
 use crate::live::live_game::LiveGameView;
 
 #[derive(Debug, Clone, Serialize)]
@@ -55,8 +56,8 @@ type Emitter = Box<dyn Fn(&AssistantState) + Send + Sync>;
 pub struct Store {
     state: Mutex<AssistantState>,
     emit: Emitter,
-    /// Nomes dos campeões, para o autocompletar das configurações.
-    champions: Mutex<Vec<String>>,
+    /// Ícones e nomes dos campeões do cliente conectado.
+    pub icons: ChampionIcons,
     /// Avisado quando a automação é retomada, para reavaliar a seleção na hora.
     pub resumed: Notify,
 }
@@ -68,7 +69,7 @@ impl Store {
         Self {
             state: Mutex::new(AssistantState::default()),
             emit: Box::new(emit),
-            champions: Mutex::new(Vec::new()),
+            icons: ChampionIcons::default(),
             resumed: Notify::new(),
         }
     }
@@ -87,14 +88,6 @@ impl Store {
         if !paused {
             self.resumed.notify_one();
         }
-    }
-
-    pub fn champions(&self) -> Vec<String> {
-        self.champions.lock().unwrap().clone()
-    }
-
-    pub fn set_champions(&self, names: Vec<String>) {
-        *self.champions.lock().unwrap() = names;
     }
 
     pub fn get(&self) -> AssistantState {

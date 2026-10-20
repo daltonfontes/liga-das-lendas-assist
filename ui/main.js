@@ -1,4 +1,4 @@
-const { invoke } = window.__TAURI__.core;
+const { invoke, convertFileSrc } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +28,17 @@ function el(tag, attrs = {}, ...children) {
 }
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const initial = (name) => (name ? name[0].toUpperCase() : "?");
+
+/** Avatar com o ícone do campeão (servido pelo app via champ://); sem ícone, fica a inicial. */
+function avatar(name, cls = "") {
+  const node = el("span", { class: `avatar ${cls}`.trim(), "aria-hidden": "true" }, initial(name));
+  if (name) {
+    const img = el("img", { src: convertFileSrc(name, "champ"), alt: "" });
+    img.addEventListener("error", () => img.remove());
+    node.append(img);
+  }
+  return node;
+}
 
 // ---------- Navegação ----------
 function showView(next) {
@@ -128,7 +139,7 @@ function teamTable(team, label, cls) {
   const head = el("tr", {}, ...[label, "KDA", "CS/min", "Itens"].map((h) => el("th", { scope: "col" }, h)));
   const rows = team.players.map((p) => el("tr", { class: [p.isMe && "me", p.dead && "dead"].filter(Boolean).join(" ") || null },
     el("td", {}, el("div", { class: "who" },
-      el("span", { class: `avatar${p.isMe ? " me" : ""}`, "aria-hidden": "true" }, initial(p.champion)),
+      avatar(p.champion, p.isMe ? "me" : ""),
       el("span", { class: "who-text" },
         el("span", { class: "champ-name" }, p.champion),
         el("span", { class: "muted small" }, `Nv ${p.level}${p.dead ? ` · renasce em ${p.respawnIn}s` : ""}`)))),
@@ -156,7 +167,9 @@ function renderSelect(s) {
   const paused = s.automationPaused;
   const a = cs.assistant;
   $("select-content").querySelector(".assistant-card").classList.toggle("paused", paused);
-  $("assistant-avatar").textContent = initial(a?.champion);
+  const assistantAvatar = avatar(a?.champion, "avatar-lg me");
+  assistantAvatar.id = "assistant-avatar";
+  $("assistant-avatar").replaceWith(assistantAvatar);
   $("assistant-title").textContent = paused ? "Automação pausada nesta seleção" : a?.title ?? "";
   $("assistant-detail").textContent = paused ? "Você escolhe manualmente. Retome quando quiser." : a?.detail ?? "";
   $("pause").classList.toggle("hidden", !config.champSelect?.enabled);
@@ -167,7 +180,7 @@ function renderSelect(s) {
     const shown = champion ?? intent;
     const champClass = champion ? "slot-champ" : intent ? "slot-champ intent" : "slot-champ empty-champ";
     return el("div", { class: `slot${isMe ? " me" : ""}` },
-      el("span", { class: `avatar avatar-md${isMe ? " me" : ""}${!champion && intent ? " intent" : ""}`, "aria-hidden": "true" }, initial(shown)),
+      avatar(shown, `avatar-md${isMe ? " me" : ""}${!champion && intent ? " intent" : ""}`),
       el("div", { class: "slot-text" }, el("span", { class: champClass }, shown ?? "A escolher"), el("span", { class: "muted small" }, sub)),
       el("span", { class: `slot-state ${slotState}` }, SLOT_STATE_PT[slotState] ?? ""));
   };
@@ -177,7 +190,7 @@ function renderSelect(s) {
   $("cs-teams").replaceChildren(
     el("section", { class: "team-col", "aria-label": "Seu time" }, el("div", { class: "team-label blue" }, "Seu time"), ...ally),
     el("section", { class: "team-col", "aria-label": "Inimigos" }, el("div", { class: "team-label red" }, "Inimigos"), ...foes));
-  $("bans").replaceChildren(...(cs.bans.length ? cs.bans.map((b) => el("span", { class: "ban-chip" }, b)) : [el("span", { class: "muted" }, "Nenhum ainda")]));
+  $("bans").replaceChildren(...(cs.bans.length ? cs.bans.map((b) => el("span", { class: "ban-chip" }, avatar(b, "avatar-xs"), el("span", { class: "strike" }, b))) : [el("span", { class: "muted" }, "Nenhum ainda")]));
 }
 
 $("pause").addEventListener("click", () => invoke("set_automation_paused", { paused: !state?.automationPaused }));
@@ -239,7 +252,7 @@ function renderChips(box) {
     remove.innerHTML = REMOVE_ICON; // ícone fixo, sem dados do usuário
     remove.addEventListener("click", () => { items.splice(i, 1); save(); renderRoles(); });
     return el("span", { class: `chip${unknown ? " unknown" : ""}`, title: unknown ? "Campeão não encontrado" : null },
-      el("span", { class: "n" }, String(i + 1)), name, remove);
+      el("span", { class: "n" }, String(i + 1)), avatar(name, "avatar-xs"), name, remove);
   }));
 }
 

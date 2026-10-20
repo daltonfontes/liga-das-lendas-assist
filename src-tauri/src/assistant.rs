@@ -111,6 +111,7 @@ impl<'a> ClientSession<'a> {
     }
 
     async fn run(mut self, mut events: mpsc::Receiver<LcuEvent>) {
+        self.store.icons.set_client(Some(self.lcu.clone()));
         self.store.update(|s| s.connected = true);
         self.store
             .log(format!("Conectado ao cliente (porta {}).", self.lcu.port));
@@ -140,6 +141,7 @@ impl<'a> ClientSession<'a> {
 
         self.auto_accept.cancel();
         self.live.stop();
+        self.store.icons.set_client(None);
         self.store.update(|s| {
             s.connected = false;
             s.phase = "None".into();
@@ -259,8 +261,8 @@ impl<'a> ClientSession<'a> {
             .await
         {
             Ok(list) => {
-                self.champions = ChampionIndex::new(list);
-                self.store.set_champions(self.champions.names());
+                self.champions = ChampionIndex::new(list.clone());
+                self.store.icons.set_index(ChampionIndex::new(list));
             }
             Err(err) => self.store.log(format!(
                 "Não foi possível carregar a lista de campeões: {err}"

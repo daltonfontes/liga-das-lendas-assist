@@ -1802,6 +1802,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "futures-util",
+ "percent-encoding",
  "reqwest 0.12.28",
  "ring",
  "rustls",

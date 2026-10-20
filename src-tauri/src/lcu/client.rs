@@ -91,6 +91,21 @@ impl LcuClient {
         })
     }
 
+    /// Conteúdo binário (ex.: imagens de `/lol-game-data`).
+    pub async fn get_bytes(&self, path: &str) -> anyhow::Result<Vec<u8>> {
+        let url = format!("https://127.0.0.1:{}{}", self.port, path);
+        let res = self
+            .http
+            .get(&url)
+            .header("Authorization", &self.auth)
+            .send()
+            .await?;
+        if !res.status().is_success() {
+            bail!("GET {path} -> {}", res.status());
+        }
+        Ok(res.bytes().await?.to_vec())
+    }
+
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> anyhow::Result<T> {
         Ok(serde_json::from_value(
             self.request(Method::GET, path, None).await?,

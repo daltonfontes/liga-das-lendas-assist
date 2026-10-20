@@ -43,7 +43,7 @@ fn set_automation_paused(app: tauri::State<AppState>, paused: bool) {
 
 #[tauri::command]
 fn get_champions(app: tauri::State<AppState>) -> Vec<String> {
-    app.store.champions()
+    app.store.icons.names()
 }
 
 pub fn run() {
@@ -62,6 +62,26 @@ pub fn run() {
             });
             tauri::async_runtime::spawn(assistant::run(store, config));
             Ok(())
+        })
+        // Ícones dos campeões: champ://localhost/<nome ou id> (http://champ.localhost no Windows).
+        .register_asynchronous_uri_scheme_protocol("champ", |ctx, request, responder| {
+            let store = ctx.app_handle().state::<AppState>().store.clone();
+            let key =
+                percent_encoding::percent_decode_str(request.uri().path().trim_start_matches('/'))
+                    .decode_utf8_lossy()
+                    .into_owned();
+            tauri::async_runtime::spawn(async move {
+                let response = match store.icons.icon(&key).await {
+                    Some(png) => tauri::http::Response::builder()
+                        .header("Content-Type", "image/png")
+                        .header("Cache-Control", "max-age=86400")
+                        .body(png.to_vec()),
+                    None => tauri::http::Response::builder()
+                        .status(404)
+                        .body(Vec::new()),
+                };
+                responder.respond(response.expect("resposta HTTP válida"));
+            });
         })
         .invoke_handler(tauri::generate_handler![
             get_state,
