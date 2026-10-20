@@ -2,6 +2,7 @@ const POSITIONS = [["default", "Qualquer rota"], ["top", "Topo"], ["jungle", "Se
 const POS_PT = { top: "Topo", jungle: "Selva", middle: "Meio", bottom: "Atirador", utility: "Suporte" };
 const PHASE_PT = { None: "No cliente", Lobby: "Lobby", Matchmaking: "Na fila", ReadyCheck: "Partida encontrada", ChampSelect: "Seleção de campeões",
   GameStart: "Carregando", InProgress: "Em partida", Reconnect: "Reconectar", WaitingForStats: "Aguardando estatísticas", PreEndOfGame: "Fim de jogo", EndOfGame: "Fim de jogo" };
+const CS_PHASE_PT = { PLANNING: "Planejamento", BAN_PICK: "Picks e bans", FINALIZATION: "Finalização" };
 const $ = (id) => document.getElementById(id);
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -38,7 +39,7 @@ function renderLive(g) {
 }
 
 function renderChampSelect(cs) {
-  $("csPhase").textContent = [cs.phase, cs.timeLeftMs != null ? `${Math.ceil(cs.timeLeftMs / 1000)}s` : ""].filter(Boolean).join(" · ");
+  $("csPhase").textContent = [CS_PHASE_PT[cs.phase] ?? cs.phase, cs.timeLeftMs != null ? `${Math.ceil(cs.timeLeftMs / 1000)}s` : ""].filter(Boolean).join(" · ");
   $("csMine").replaceChildren(row(["Rota", "Campeão", "Jogador"], "", "th"),
     ...cs.myTeam.map((p) => row([POS_PT[p.position] ?? (p.position || "—"), p.champion ?? (p.intent ? `(${p.intent})` : "—"), p.isMe ? "Você" : p.name ?? ""], p.isMe ? "me" : "")));
   $("csTheirs").replaceChildren(row(["Campeão"], "", "th"), ...cs.theirTeam.map((p) => row([p.champion ?? "—"])));

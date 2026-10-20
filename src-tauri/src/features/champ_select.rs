@@ -188,13 +188,18 @@ pub struct TeamMemberView {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct EnemyView {
+    pub champion: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChampSelectView {
     pub phase: String,
     pub time_left_ms: Option<f64>,
     pub position: Option<String>,
     pub my_team: Vec<TeamMemberView>,
-    pub their_team: Vec<Option<String>>,
+    pub their_team: Vec<EnemyView>,
     pub bans: Vec<String>,
 }
 
@@ -229,7 +234,9 @@ pub fn build_view(session: &Session, champions: &ChampionIndex) -> ChampSelectVi
         their_team: session
             .their_team
             .iter()
-            .map(|p| champions.name(p.champion_id))
+            .map(|p| EnemyView {
+                champion: champions.name(p.champion_id),
+            })
             .collect(),
         bans: ban_ids
             .into_iter()
@@ -515,5 +522,12 @@ mod tests {
         assert_eq!(view.my_team[0].champion.as_deref(), Some("Ahri"));
         assert!(view.my_team[0].is_me);
         assert_eq!(view.bans, ["Lee Sin"]);
+        // A interface espera objetos { champion } para o time inimigo.
+        let json = serde_json::to_value(&view).unwrap();
+        assert_eq!(
+            json["theirTeam"][0],
+            serde_json::json!({ "champion": null })
+        );
+        assert_eq!(json["myTeam"][0]["isMe"], true);
     }
 }
