@@ -28,6 +28,8 @@ pub struct AssistantState {
     pub phase: String,
     pub champ_select: Option<ChampSelectView>,
     pub live_game: Option<LiveGameView>,
+    /// Automação da seleção pausada pelo jogador (só na seleção atual).
+    pub automation_paused: bool,
     pub log: Vec<LogEntry>,
 }
 
@@ -39,10 +41,13 @@ impl Default for AssistantState {
             phase: "None".into(),
             champ_select: None,
             live_game: None,
+            automation_paused: false,
             log: Vec::new(),
         }
     }
 }
+
+use tokio::sync::Notify;
 
 type Emitter = Box<dyn Fn(&AssistantState) + Send + Sync>;
 
@@ -50,6 +55,10 @@ type Emitter = Box<dyn Fn(&AssistantState) + Send + Sync>;
 pub struct Store {
     state: Mutex<AssistantState>,
     emit: Emitter,
+    /// Nomes dos campeões, para o autocompletar das configurações.
+    champions: Mutex<Vec<String>>,
+    /// Avisado quando a automação é retomada, para reavaliar a seleção na hora.
+    pub resumed: Notify,
 }
 
 const MAX_LOG: usize = 50;
@@ -59,7 +68,33 @@ impl Store {
         Self {
             state: Mutex::new(AssistantState::default()),
             emit: Box::new(emit),
+            champions: Mutex::new(Vec::new()),
+            resumed: Notify::new(),
         }
+    }
+
+    pub fn automation_paused(&self) -> bool {
+        self.state.lock().unwrap().automation_paused
+    }
+
+    pub fn set_automation_paused(&self, paused: bool) {
+        self.update(|s| s.automation_paused = paused);
+        self.log(if paused {
+            "Automação pausada nesta seleção."
+        } else {
+            "Automação retomada."
+        });
+        if !paused {
+            self.resumed.notify_one();
+        }
+    }
+
+    pub fn champions(&self) -> Vec<String> {
+        self.champions.lock().unwrap().clone()
+    }
+
+    pub fn set_champions(&self, names: Vec<String>) {
+        *self.champions.lock().unwrap() = names;
     }
 
     pub fn get(&self) -> AssistantState {

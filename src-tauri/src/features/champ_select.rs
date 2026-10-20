@@ -43,6 +43,7 @@ pub struct Bans {
 pub struct Timer {
     pub phase: String,
     pub adjusted_time_left_in_phase: Option<f64>,
+    pub total_time_in_phase: Option<f64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -97,6 +98,47 @@ impl Session {
         }
         taken.retain(|id| *id > 0);
         taken
+    }
+
+    /// Preferências ainda disponíveis para `kind` ("pick" ou "ban"), na ordem.
+    pub fn options(&self, prefs: &[i64], kind: &str, allowed: Option<&HashSet<i64>>) -> Vec<i64> {
+        let taken = self.unavailable(kind);
+        prefs
+            .iter()
+            .copied()
+            .filter(|id| {
+                *id > 0 && !taken.contains(id) && allowed.is_none_or(|set| set.contains(id))
+            })
+            .collect()
+    }
+
+    fn pick_action(&self, cell_id: i64) -> Option<&Action> {
+        self.actions()
+            .filter(|a| a.actor_cell_id == cell_id && a.kind == "pick")
+            .last()
+    }
+
+    /// Estado de uma vaga: "confirmed", "picking", "intent" ou "waiting".
+    fn slot_state(&self, p: &Player) -> &'static str {
+        match self.pick_action(p.cell_id) {
+            Some(a) if a.completed => "confirmed",
+            Some(a) if a.is_in_progress => "picking",
+            // Modos sem ações de pick (ex.: escolha às cegas) só mostram o campeão final.
+            None if p.champion_id > 0 => "confirmed",
+            _ if p.champion_id > 0 || p.champion_pick_intent > 0 => "intent",
+            _ => "waiting",
+        }
+    }
+}
+
+fn position_pt(position: &str) -> &str {
+    match position {
+        "top" => "Topo",
+        "jungle" => "Selva",
+        "middle" => "Meio",
+        "bottom" => "Atirador",
+        "utility" => "Suporte",
+        other => other,
     }
 }
 
@@ -185,10 +227,20 @@ pub struct TeamMemberView {
     pub intent: Option<String>,
     pub name: Option<String>,
     pub is_me: bool,
+    pub state: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct EnemyView {
+    pub champion: Option<String>,
+    pub state: &'static str,
+}
+
+/// O que o assistente vai fazer, mostrado no card da seleção.
+#[derive(Debug, Clone, Serialize)]
+pub struct AssistantView {
+    pub title: String,
+    pub detail: String,
     pub champion: Option<String>,
 }
 
@@ -197,10 +249,12 @@ pub struct EnemyView {
 pub struct ChampSelectView {
     pub phase: String,
     pub time_left_ms: Option<f64>,
+    pub total_ms: Option<f64>,
     pub position: Option<String>,
     pub my_team: Vec<TeamMemberView>,
     pub their_team: Vec<EnemyView>,
     pub bans: Vec<String>,
+    pub assistant: Option<AssistantView>,
 }
 
 pub fn build_view(session: &Session, champions: &ChampionIndex) -> ChampSelectView {
@@ -219,6 +273,7 @@ pub fn build_view(session: &Session, champions: &ChampionIndex) -> ChampSelectVi
     ChampSelectView {
         phase: session.timer.phase.clone(),
         time_left_ms: session.timer.adjusted_time_left_in_phase,
+        total_ms: session.timer.total_time_in_phase,
         position: session.local_position(),
         my_team: session
             .my_team
@@ -229,6 +284,7 @@ pub fn build_view(session: &Session, champions: &ChampionIndex) -> ChampSelectVi
                 intent: champions.name(p.champion_pick_intent),
                 name: (!p.game_name.is_empty()).then(|| format!("{}#{}", p.game_name, p.tag_line)),
                 is_me: p.cell_id == session.local_player_cell_id,
+                state: session.slot_state(p),
             })
             .collect(),
         their_team: session
@@ -236,6 +292,7 @@ pub fn build_view(session: &Session, champions: &ChampionIndex) -> ChampSelectVi
             .iter()
             .map(|p| EnemyView {
                 champion: champions.name(p.champion_id),
+                state: session.slot_state(p),
             })
             .collect(),
         bans: ban_ids
@@ -243,6 +300,67 @@ pub fn build_view(session: &Session, champions: &ChampionIndex) -> ChampSelectVi
             .filter(|id| *id > 0)
             .map(|id| champions.name(id).unwrap_or_else(|| id.to_string()))
             .collect(),
+        assistant: None,
+    }
+}
+
+/// Descreve o plano do assistente para o jogador local.
+pub fn describe_plan(
+    session: &Session,
+    picks: &[i64],
+    pickable: Option<&HashSet<i64>>,
+    auto_lock: bool,
+    champions: &ChampionIndex,
+) -> AssistantView {
+    let name = |id: i64| champions.name(id).unwrap_or_else(|| id.to_string());
+    let mine = session.pick_action(session.local_player_cell_id);
+    if let Some(a) = mine.filter(|a| a.completed) {
+        return AssistantView {
+            title: format!("Você confirmou {}", name(a.champion_id)),
+            detail: "Boa partida!".into(),
+            champion: champions.name(a.champion_id),
+        };
+    }
+    let options = session.options(picks, "pick", pickable);
+    // Uma seleção já feita e disponível é mantida, como em `decide`.
+    let hovered = mine
+        .map(|a| a.champion_id)
+        .filter(|id| !session.options(&[*id], "pick", pickable).is_empty());
+    let Some(first) = hovered.or_else(|| options.first().copied()) else {
+        return AssistantView {
+            title: "Nenhuma opção disponível".into(),
+            detail: "Os campeões da sua lista estão banidos, escolhidos ou indisponíveis.".into(),
+            champion: None,
+        };
+    };
+    let position = session
+        .local_position()
+        .map(|p| format!(" para o {}", position_pt(&p)))
+        .unwrap_or_default();
+    let your_turn = mine.is_some_and(|a| a.is_in_progress);
+    let title = if your_turn {
+        format!("Sua vez: {}{position}", name(first))
+    } else {
+        format!("Plano: {}{position}", name(first))
+    };
+    let mut detail = if auto_lock {
+        "O assistente confirma automaticamente.".to_string()
+    } else {
+        "O assistente seleciona; você confirma.".to_string()
+    };
+    let next: Vec<String> = options
+        .iter()
+        .filter(|id| **id != first)
+        .take(3)
+        .map(|id| name(*id))
+        .collect();
+    if !next.is_empty() {
+        detail.push_str(&format!(" Próximas opções: {}.", next.join(", ")));
+    }
+    AssistantView {
+        title,
+        detail,
+        champion: champions.name(first),
     }
 }
 
@@ -257,7 +375,11 @@ pub struct ChampSelectAssistant {
 impl ChampSelectAssistant {
     pub fn reset(&mut self, store: &Store) {
         *self = Self::default();
-        store.update(|s| s.champ_select = None);
+        // A pausa vale só para a seleção em que foi pedida.
+        store.update(|s| {
+            s.champ_select = None;
+            s.automation_paused = false;
+        });
     }
 
     pub async fn handle(
@@ -268,9 +390,15 @@ impl ChampSelectAssistant {
         champions: &ChampionIndex,
         config: &AssistantConfig,
     ) {
-        store.update(|s| s.champ_select = Some(build_view(&session, champions)));
+        let mut view = build_view(&session, champions);
         let cfg = &config.champ_select;
         if !cfg.enabled {
+            view.assistant = Some(AssistantView {
+                title: "Seleção automática desligada".into(),
+                detail: "Ative em Configurações para escolher pela sua lista.".into(),
+                champion: None,
+            });
+            store.update(|s| s.champ_select = Some(view));
             return;
         }
         if self.pickable.is_none() {
@@ -296,6 +424,17 @@ impl ChampSelectAssistant {
                 .collect()
         };
         let (picks, bans) = (resolve(&cfg.picks), resolve(&cfg.bans));
+        view.assistant = Some(describe_plan(
+            &session,
+            &picks,
+            self.pickable.as_ref(),
+            cfg.auto_lock,
+            champions,
+        ));
+        store.update(|s| s.champ_select = Some(view));
+        if store.automation_paused() {
+            return;
+        }
         let Some(decision) = decide(&DecisionInput {
             session: &session,
             picks: &picks,
@@ -380,7 +519,7 @@ mod tests {
             actions,
             timer: Timer {
                 phase: "BAN_PICK".into(),
-                adjusted_time_left_in_phase: None,
+                ..Default::default()
             },
             ..Default::default()
         }
@@ -526,8 +665,70 @@ mod tests {
         let json = serde_json::to_value(&view).unwrap();
         assert_eq!(
             json["theirTeam"][0],
-            serde_json::json!({ "champion": null })
+            serde_json::json!({ "champion": null, "state": "waiting" })
         );
         assert_eq!(json["myTeam"][0]["isMe"], true);
+    }
+
+    fn index() -> ChampionIndex {
+        ChampionIndex::new(
+            [
+                (AHRI, "Ahri"),
+                (ORIANNA, "Orianna"),
+                (LEE, "Lee Sin"),
+                (ZED, "Zed"),
+            ]
+            .into_iter()
+            .map(|(id, name)| ChampionSummary {
+                id,
+                name: name.into(),
+                alias: name.replace(' ', ""),
+            })
+            .collect(),
+        )
+    }
+
+    #[test]
+    fn estados_das_vagas() {
+        let mut done = action(1, 0, "pick");
+        done.completed = true;
+        done.champion_id = LEE;
+        let mut s = session(vec![vec![
+            done,
+            in_progress(action(2, 1, "pick")),
+            action(3, 2, "pick"),
+        ]]);
+        s.my_team[0].champion_id = LEE;
+        s.my_team[2].champion_pick_intent = AHRI;
+        s.their_team[0].champion_id = ZED; // sem ação de pick: escolha às cegas
+        let view = build_view(&s, &index());
+        let states: Vec<&str> = view.my_team.iter().map(|p| p.state).collect();
+        assert_eq!(states, ["confirmed", "picking", "intent"]);
+        assert_eq!(view.their_team[0].state, "confirmed");
+    }
+
+    #[test]
+    fn descreve_o_plano() {
+        let s = session(vec![vec![in_progress(action(10, 2, "pick"))]]);
+        let plan = describe_plan(&s, &[AHRI, ORIANNA], None, true, &index());
+        assert_eq!(plan.title, "Sua vez: Ahri para o Meio");
+        assert_eq!(
+            plan.detail,
+            "O assistente confirma automaticamente. Próximas opções: Orianna."
+        );
+
+        let mut hovered = in_progress(action(10, 2, "pick"));
+        hovered.champion_id = LEE;
+        let s = session(vec![vec![hovered]]);
+        let plan = describe_plan(&s, &[AHRI], None, false, &index());
+        assert_eq!(plan.title, "Sua vez: Lee Sin para o Meio");
+        assert!(plan
+            .detail
+            .starts_with("O assistente seleciona; você confirma."));
+
+        let s = session(vec![vec![action(10, 2, "pick")]]);
+        let owned = HashSet::from([LEE]);
+        let plan = describe_plan(&s, &[AHRI], Some(&owned), true, &index());
+        assert_eq!(plan.title, "Nenhuma opção disponível");
     }
 }

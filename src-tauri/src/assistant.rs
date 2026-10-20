@@ -123,8 +123,19 @@ impl<'a> ClientSession<'a> {
             .unwrap_or_else(|_| "None".into());
         self.on_phase(phase).await;
 
-        while let Some(event) = events.recv().await {
-            self.on_event(event).await;
+        loop {
+            tokio::select! {
+                event = events.recv() => match event {
+                    Some(event) => self.on_event(event).await,
+                    None => break,
+                },
+                // Retomou a automação: reavalia a seleção sem esperar o próximo evento.
+                _ = self.store.resumed.notified() => {
+                    if let Ok(session) = self.lcu.get::<Session>("/lol-champ-select/v1/session").await {
+                        self.handle_session(session).await;
+                    }
+                }
+            }
         }
 
         self.auto_accept.cancel();
@@ -247,7 +258,10 @@ impl<'a> ClientSession<'a> {
             .get::<Vec<ChampionSummary>>("/lol-game-data/assets/v1/champion-summary.json")
             .await
         {
-            Ok(list) => self.champions = ChampionIndex::new(list),
+            Ok(list) => {
+                self.champions = ChampionIndex::new(list);
+                self.store.set_champions(self.champions.names());
+            }
             Err(err) => self.store.log(format!(
                 "Não foi possível carregar a lista de campeões: {err}"
             )),

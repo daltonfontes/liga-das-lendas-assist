@@ -7,61 +7,139 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <h1>Liga das Lendas Assist</h1>
-  <span id="conn" class="pill">Desconectado</span>
-  <span id="phase" class="pill">—</span>
-  <span id="summoner" class="muted"></span>
-</header>
-<main>
-  <div>
-    <section id="live" class="hidden">
-      <h2>Partida ao vivo <span id="gameTime" class="muted"></span></h2>
-      <div id="timers" class="timers"></div>
-      <h2 class="mt">Dicas</h2>
-      <ul id="tips" class="tips"></ul>
-      <div id="teams" class="teams mt"></div>
-    </section>
-    <section id="champSelect" class="hidden">
-      <h2>Seleção de campeões <span id="csPhase" class="muted"></span></h2>
-      <div class="teams">
-        <div class="ORDER"><div class="team-title">Seu time</div><div class="scroll"><table id="csMine"></table></div></div>
-        <div class="CHAOS"><div class="team-title">Inimigos</div><div class="scroll"><table id="csTheirs"></table></div></div>
+<div class="app">
+  <nav class="sidebar" aria-label="Navegação">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 2 28 9v14l-12 7L4 23V9z"/><path d="M12 9v13h9"/></svg>
+      <div class="brand-name">LIGA DAS LENDAS<span>ASSIST</span></div>
+    </div>
+    <button type="button" class="nav-item" data-view="live">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Partida</button>
+    <button type="button" class="nav-item" data-view="select">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20 20 4M14 4h6v6M4 4l6 6"/></svg>Seleção</button>
+    <button type="button" class="nav-item" data-view="settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Configurações</button>
+    <div class="spacer"></div>
+    <div class="status-card" aria-live="polite">
+      <div id="conn" class="conn"><span class="dot"></span><span id="conn-text">Aguardando o cliente</span></div>
+      <div id="summoner" class="summoner"></div>
+      <div id="summoner-level" class="muted small"></div>
+    </div>
+  </nav>
+
+  <main>
+    <!-- Partida ao vivo -->
+    <section id="view-live" class="view" aria-label="Partida">
+      <header class="view-header">
+        <ol id="stepper" class="stepper" aria-label="Fase"></ol>
+        <div id="clock" class="clock"></div>
+      </header>
+      <div id="live-empty" class="empty">
+        <h1>Nenhuma partida em andamento</h1>
+        <p id="live-empty-text" class="muted">Entre na fila — o assistente acompanha tudo daqui.</p>
       </div>
-      <p class="muted" id="csBans"></p>
+      <div id="live-content" class="stack hidden">
+        <section id="timers" class="timers" aria-label="Objetivos"></section>
+        <section id="tips" class="tips" aria-label="Dicas" aria-live="polite">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3 2 21h20z"/><path d="M12 10v4M12 17v.5"/></svg>
+          <div><div id="tip-main" class="tip-main"></div><ul id="tip-more" class="tip-more"></ul></div>
+        </section>
+        <section class="stack-sm" aria-label="Placar">
+          <div class="killbar"><span id="kills-mine" class="blue"></span><div class="bar"><div id="killbar-mine"></div></div><span id="kills-enemy" class="red"></span></div>
+          <div class="killbar-caption muted small"><span id="caption-mine"></span><span id="caption-enemy"></span></div>
+          <div id="teams" class="teams"></div>
+        </section>
+      </div>
     </section>
-    <section id="idle">
-      <h2>Aguardando</h2>
-      <p class="muted" id="idleText">Abra o cliente do League of Legends. O assistente se conecta sozinho.</p>
+
+    <!-- Seleção de campeões -->
+    <section id="view-select" class="view hidden" aria-label="Seleção de campeões">
+      <header class="view-header">
+        <div>
+          <div class="eyebrow">Seleção de campeões</div>
+          <h1 id="cs-phase" class="title">Picks e bans</h1>
+        </div>
+        <div id="ring" class="ring" role="img"><div id="ring-value"></div></div>
+      </header>
+      <div id="select-empty" class="empty">
+        <h1>Fora da seleção de campeões</h1>
+        <p class="muted">Quando a partida for aceita, os times e o plano do assistente aparecem aqui.</p>
+      </div>
+      <div id="select-content" class="stack hidden">
+        <section class="assistant-card" aria-label="Assistente" aria-live="polite">
+          <span id="assistant-avatar" class="avatar avatar-lg me"></span>
+          <div class="assistant-text">
+            <div id="assistant-title" class="strong"></div>
+            <div id="assistant-detail" class="soft"></div>
+          </div>
+          <button type="button" id="pause" class="btn-outline"></button>
+        </section>
+        <div id="cs-teams" class="teams"></div>
+        <section class="bans" aria-label="Banidos"><span class="eyebrow">Banidos</span><span id="bans" class="chips"></span></section>
+      </div>
     </section>
-  </div>
-  <div>
-    <section>
-      <h2>Configuração</h2>
-      <form id="cfg">
-        <fieldset><legend>Fila</legend>
-          <label><input type="checkbox" name="autoAccept.enabled"> Aceitar partida automaticamente</label>
-          <label class="stack">Atraso (ms) <input type="number" name="autoAccept.delayMs" min="0" step="250"></label>
-        </fieldset>
-        <fieldset><legend>Seleção de campeões</legend>
-          <label><input type="checkbox" name="champSelect.enabled"> Selecionar campeão pela preferência</label>
-          <label><input type="checkbox" name="champSelect.autoLock"> Confirmar automaticamente</label>
-          <label><input type="checkbox" name="champSelect.autoBan"> Banir automaticamente</label>
-          <p class="muted hint">Nomes separados por vírgula, em ordem de preferência.</p>
-          <div id="prefs"></div>
-        </fieldset>
-        <fieldset><legend>Partida</legend>
-          <label><input type="checkbox" name="liveGame.enabled"> Acompanhar partida ao vivo</label>
-        </fieldset>
-        <button type="submit">Salvar</button> <span id="saved" class="muted"></span>
-      </form>
+
+    <!-- Configurações -->
+    <section id="view-settings" class="view hidden" aria-label="Configurações">
+      <div class="settings-layout">
+        <form id="cfg" class="stack settings-main" autocomplete="off">
+          <header class="settings-header"><h1 class="title">Configurações</h1><span id="saved" class="muted small" aria-live="polite"></span></header>
+
+          <section class="card" aria-label="Fila">
+            <label class="row">
+              <span class="row-text"><span class="strong">Aceitar partida automaticamente</span><span class="muted small">Se você recusar antes, o assistente respeita.</span></span>
+              <input type="checkbox" role="switch" name="autoAccept.enabled" class="switch-input"><span class="switch" aria-hidden="true"></span>
+            </label>
+            <label class="row">
+              <span class="strong">Atraso antes de aceitar</span>
+              <span class="range"><input type="range" name="autoAccept.delayMs" min="0" max="8000" step="500"><output id="delay-out" class="num"></output></span>
+            </label>
+          </section>
+
+          <section class="card" aria-label="Seleção de campeões">
+            <label class="row">
+              <span class="strong">Selecionar campeão pela preferência</span>
+              <input type="checkbox" role="switch" name="champSelect.enabled" class="switch-input"><span class="switch" aria-hidden="true"></span>
+            </label>
+            <label class="row">
+              <span class="strong">Confirmar automaticamente</span>
+              <input type="checkbox" role="switch" name="champSelect.autoLock" class="switch-input"><span class="switch" aria-hidden="true"></span>
+            </label>
+            <label class="row">
+              <span class="strong">Banir automaticamente</span>
+              <input type="checkbox" role="switch" name="champSelect.autoBan" class="switch-input"><span class="switch" aria-hidden="true"></span>
+            </label>
+            <div id="roles" class="roles" role="tablist" aria-label="Rota"></div>
+            <div class="lists">
+              <div class="list">
+                <div id="picks-label" class="eyebrow"></div>
+                <div class="chip-input" data-list="picks"><span class="chips"></span><input type="text" list="champ-list" placeholder="+ Adicionar" aria-labelledby="picks-label"></div>
+              </div>
+              <div class="list">
+                <div id="bans-label" class="eyebrow"></div>
+                <div class="chip-input" data-list="bans"><span class="chips"></span><input type="text" list="champ-list" placeholder="+ Adicionar" aria-labelledby="bans-label"></div>
+              </div>
+            </div>
+            <p class="muted small hint">A lista da rota vem antes de “Qualquer rota”. Campeões banidos, já escolhidos ou que você não tem são pulados. Enter adiciona.</p>
+            <datalist id="champ-list"></datalist>
+          </section>
+
+          <section class="card" aria-label="Partida">
+            <label class="row">
+              <span class="strong">Acompanhar partida ao vivo</span>
+              <input type="checkbox" role="switch" name="liveGame.enabled" class="switch-input"><span class="switch" aria-hidden="true"></span>
+            </label>
+          </section>
+        </form>
+
+        <aside class="activity" aria-label="Atividade">
+          <div class="eyebrow">Atividade</div>
+          <div id="log" class="log"></div>
+        </aside>
+      </div>
     </section>
-    <section>
-      <h2>Atividade</h2>
-      <div id="log" class="log"></div>
-    </section>
-  </div>
-</main>
+  </main>
+</div>
 <script src="main.js"></script>
 </body>
 </html>

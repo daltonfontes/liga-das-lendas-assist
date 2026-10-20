@@ -10,7 +10,7 @@ Conversa com a API local do cliente (LCU — *League Client Update*) e com a
 | Fase | Recurso |
 | --- | --- |
 | Fila | **Aceita a partida** automaticamente (com atraso configurável; se você recusar antes, ele respeita). |
-| Seleção de campeões | Mostra seu time, inimigos e bans. **Seleciona/declara** seu campeão pela lista de preferência da sua rota, **confirma** e **bane** automaticamente (opcional). Pula campeões banidos, já escolhidos, que você não tem, e nunca bane o que um aliado declarou. Se você já selecionou algo manualmente, ele respeita. |
+| Seleção de campeões | Mostra seu time, inimigos e bans, e um card com o plano do assistente (com botão para **pausar a automação** só naquela seleção). **Seleciona/declara** seu campeão pela lista de preferência da sua rota, **confirma** e **bane** automaticamente (opcional). Pula campeões banidos, já escolhidos, que você não tem, e nunca bane o que um aliado declarou. Se você já selecionou algo manualmente, ele respeita. |
 | Em partida | Timers de **Dragão/Ancião, Arauto, Barão e inibidores**, placar de dragões, KDA/CS/CS por minuto, ouro em itens por time, tempo de renascimento dos inimigos e **dicas** (janela de objetivo com inimigos mortos, objetivo nascendo, farm baixo, vantagem/desvantagem de ouro). |
 
 O assistente detecta sozinho quando o cliente abre/fecha e reconecta.
@@ -45,7 +45,8 @@ cargo clippy --all-targets -- -D warnings
 ## Estrutura
 
 ```
-ui/                        interface (HTML/CSS/JS puro, sem bundler)
+ui/                        interface (HTML/CSS/JS puro, sem bundler; fontes Inter e
+                           Barlow Condensed embutidas em ui/fonts, licença OFL)
 src-tauri/
   src/lib.rs               app Tauri: comandos get_state / get_config / set_config
   src/assistant.rs         ciclo de vida: acha o cliente, segue a fase do jogo, reconecta

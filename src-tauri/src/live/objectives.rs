@@ -56,6 +56,20 @@ pub struct ObjectiveTimer {
     /// Segundos restantes; 0 quando já está vivo.
     pub remaining: f64,
     pub alive: bool,
+    /// Fração (0–1) do intervalo até nascer já decorrida.
+    pub progress: f64,
+    /// Complemento, ex.: "vermelho · meio" para um inibidor.
+    pub detail: Option<String>,
+}
+
+impl ObjectiveTimer {
+    /// Nome com o complemento, para as dicas.
+    pub fn full_name(&self) -> String {
+        match &self.detail {
+            Some(d) => format!("{} ({d})", self.name),
+            None => self.name.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -89,13 +103,17 @@ pub struct ObjectiveSummary {
     pub barons: PerTeam<u32>,
 }
 
-fn timer(name: impl Into<String>, spawns_at: f64, game_time: f64) -> ObjectiveTimer {
+/// Timer de um objetivo que fica indisponível de `from` até `spawns_at`.
+fn timer(name: impl Into<String>, from: f64, spawns_at: f64, game_time: f64) -> ObjectiveTimer {
     let remaining = (spawns_at - game_time).max(0.0).ceil();
+    let span = (spawns_at - from).max(1.0);
     ObjectiveTimer {
         name: name.into(),
         spawns_at,
         remaining,
         alive: remaining == 0.0,
+        progress: ((game_time - from) / span).clamp(0.0, 1.0),
+        detail: None,
     }
 }
 
@@ -108,8 +126,8 @@ pub fn compute(
 ) -> ObjectiveSummary {
     let mut dragons: PerTeam<Vec<String>> = PerTeam::default();
     let mut barons: PerTeam<u32> = PerTeam::default();
-    let mut next_dragon = times::DRAGON_FIRST_SPAWN;
-    let mut next_baron = times::BARON_FIRST_SPAWN;
+    let (mut dragon_from, mut next_dragon) = (0.0, times::DRAGON_FIRST_SPAWN);
+    let (mut baron_from, mut next_baron) = (0.0, times::BARON_FIRST_SPAWN);
     let mut herald_taken = false;
     let mut inhibs: BTreeMap<String, f64> = BTreeMap::new();
     let soul = |d: &PerTeam<Vec<String>>| {
@@ -125,6 +143,7 @@ pub fn compute(
                 if let Some(team) = team_of(ev.killer.as_deref()).filter(|_| kind != "Elder") {
                     dragons.get_mut(team).push(kind);
                 }
+                dragon_from = ev.time;
                 next_dragon = ev.time
                     + if soul(&dragons) {
                         times::ELDER_RESPAWN
@@ -136,12 +155,13 @@ pub fn compute(
                 if let Some(team) = team_of(ev.killer.as_deref()) {
                     *barons.get_mut(team) += 1;
                 }
+                baron_from = ev.time;
                 next_baron = ev.time + times::BARON_RESPAWN;
             }
             "HeraldKill" => herald_taken = true,
             "InhibKilled" => {
                 if let Some(id) = &ev.inhib {
-                    inhibs.insert(id.clone(), ev.time + times::INHIBITOR_RESPAWN);
+                    inhibs.insert(id.clone(), ev.time);
                 }
             }
             "InhibRespawned" => {
@@ -159,19 +179,21 @@ pub fn compute(
         } else {
             "Dragão"
         },
+        dragon_from,
         next_dragon,
         game_time,
     )];
     if !herald_taken && game_time < times::BARON_FIRST_SPAWN {
-        timers.push(timer("Arauto", times::HERALD_FIRST_SPAWN, game_time));
+        timers.push(timer("Arauto", 0.0, times::HERALD_FIRST_SPAWN, game_time));
     }
-    timers.push(timer("Barão", next_baron, game_time));
-    for (id, respawn) in inhibs.into_iter().filter(|(_, t)| *t > game_time) {
-        timers.push(timer(
-            format!("Inibidor {}", describe_inhib(&id)),
-            respawn,
-            game_time,
-        ));
+    timers.push(timer("Barão", baron_from, next_baron, game_time));
+    for (id, killed_at) in inhibs {
+        let respawn = killed_at + times::INHIBITOR_RESPAWN;
+        if respawn > game_time {
+            let mut t = timer("Inibidor", killed_at, respawn, game_time);
+            t.detail = Some(describe_inhib(&id));
+            timers.push(t);
+        }
     }
     ObjectiveSummary {
         timers,
@@ -180,7 +202,7 @@ pub fn compute(
     }
 }
 
-/// "Barracks_T1_L1" -> "azul (topo)". T1 = time azul (ORDER), T2 = vermelho (CHAOS).
+/// "Barracks_T1_L1" -> "azul · topo". T1 = time azul (ORDER), T2 = vermelho (CHAOS).
 pub fn describe_inhib(id: &str) -> String {
     let Some(pos) = id.find("_T") else {
         return id.to_string();
@@ -197,7 +219,7 @@ pub fn describe_inhib(id: &str) -> String {
         Some(b'R') => "bot",
         _ => return id.to_string(),
     };
-    format!("{side} ({lane})")
+    format!("{side} · {lane}")
 }
 
 #[cfg(test)]
@@ -225,6 +247,7 @@ mod tests {
         let o = compute(&[], 120.0, team_of);
         assert_eq!(o.timers[0].name, "Dragão");
         assert_eq!(o.timers[0].remaining, times::DRAGON_FIRST_SPAWN - 120.0);
+        assert!((o.timers[0].progress - 120.0 / times::DRAGON_FIRST_SPAWN).abs() < 1e-9);
         assert!(o.timers.iter().any(|t| t.name == "Arauto"));
     }
 
@@ -261,13 +284,10 @@ mod tests {
             ..ev("InhibKilled", 1800.0)
         };
         let o = compute(&[kill], 1900.0, team_of);
-        let t = o
-            .timers
-            .iter()
-            .find(|t| t.name.starts_with("Inibidor"))
-            .unwrap();
-        assert_eq!(t.name, "Inibidor vermelho (meio)");
+        let t = o.timers.iter().find(|t| t.name == "Inibidor").unwrap();
+        assert_eq!(t.full_name(), "Inibidor (vermelho · meio)");
         assert_eq!(t.remaining, 200.0);
-        assert_eq!(describe_inhib("Barracks_T1_L1"), "azul (topo)");
+        assert!((t.progress - 100.0 / 300.0).abs() < 1e-9);
+        assert_eq!(describe_inhib("Barracks_T1_L1"), "azul · topo");
     }
 }

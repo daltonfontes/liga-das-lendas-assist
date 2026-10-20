@@ -38,6 +38,13 @@ impl ChampionIndex {
         self.by_id.is_empty()
     }
 
+    /// Nomes em ordem alfabética.
+    pub fn names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.by_id.values().cloned().collect();
+        names.sort();
+        names
+    }
+
     pub fn name(&self, id: i64) -> Option<String> {
         self.by_id.get(&id).cloned()
     }

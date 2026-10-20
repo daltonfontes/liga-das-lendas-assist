@@ -226,7 +226,8 @@ fn build_tips(
     {
         tips.push(format!(
             "{} nasce em {}s — prepare visão e prioridade de rota.",
-            t.name, t.remaining
+            t.full_name(),
+            t.remaining
         ));
     }
     if dead_enemies.len() >= 2 && dead_enemies.len() > dead_allies {

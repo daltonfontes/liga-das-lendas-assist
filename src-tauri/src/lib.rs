@@ -33,8 +33,17 @@ fn get_config(app: tauri::State<AppState>) -> AssistantConfig {
 fn set_config(app: tauri::State<AppState>, config: AssistantConfig) -> Result<(), String> {
     config::save(&app.config_path, &config).map_err(|e| e.to_string())?;
     *app.config.write().unwrap() = config;
-    app.store.log("Configuração salva.");
     Ok(())
+}
+
+#[tauri::command]
+fn set_automation_paused(app: tauri::State<AppState>, paused: bool) {
+    app.store.set_automation_paused(paused);
+}
+
+#[tauri::command]
+fn get_champions(app: tauri::State<AppState>) -> Vec<String> {
+    app.store.champions()
 }
 
 pub fn run() {
@@ -54,7 +63,13 @@ pub fn run() {
             tauri::async_runtime::spawn(assistant::run(store, config));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_state, get_config, set_config])
+        .invoke_handler(tauri::generate_handler![
+            get_state,
+            get_config,
+            set_config,
+            set_automation_paused,
+            get_champions
+        ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Liga das Lendas Assist");
 }
