@@ -1,18 +1,36 @@
 {
-  "autoAccept": { "enabled": true, "delayMs": 2000 },
+  "autoAccept": {
+    "enabled": true,
+    "delayMs": 2000
+  },
   "champSelect": {
     "enabled": true,
     "autoLock": false,
     "autoBan": true,
     "picks": {
-      "middle": ["Ahri", "Orianna", "Syndra"],
-      "jungle": ["Lee Sin", "Vi"],
-      "default": ["Malphite"]
+      "middle": [
+        "Ahri",
+        "Orianna",
+        "Syndra"
+      ],
+      "jungle": [
+        "Lee Sin",
+        "Vi"
+      ],
+      "default": [
+        "Malphite"
+      ]
     },
     "bans": {
-      "default": ["Yasuo", "Zed", "Master Yi"]
+      "default": [
+        "Yasuo",
+        "Zed",
+        "Master Yi"
+      ]
     }
   },
-  "liveGame": { "enabled": true, "pollIntervalMs": 2000 },
-  "dashboard": { "port": 3737 }
+  "liveGame": {
+    "enabled": true,
+    "pollIntervalMs": 2000
+  }
 }

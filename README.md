@@ -1,8 +1,9 @@
 # Liga das Lendas Assist
 
-Assistente de partida para **League of Legends** que conversa com a API local do cliente
-(LCU — *League Client Update*) e com a **Live Client Data API** do jogo. Roda no seu PC,
-ao lado do cliente, e mostra tudo num painel em `http://127.0.0.1:3737`.
+Assistente de partida para **League of Legends**, feito em **[Tauri](https://tauri.app) + Rust**.
+Conversa com a API local do cliente (LCU — *League Client Update*) e com a
+**Live Client Data API** do jogo. O app é um executável de ~5 MB: usa o WebView do sistema
+(WebView2 no Windows, WebKit no macOS) em vez de embutir um Chromium.
 
 ## O que ele faz
 
@@ -14,53 +15,57 @@ ao lado do cliente, e mostra tudo num painel em `http://127.0.0.1:3737`.
 
 O assistente detecta sozinho quando o cliente abre/fecha e reconecta.
 
-## Como usar
+## Instalar
 
-Requer **Node.js 20+** no mesmo computador do cliente do LoL (Windows ou macOS).
+Baixe o instalador na página de *Releases* (gerado pelo workflow `release.yml` ao publicar
+uma tag `v*`). A configuração fica salva na pasta de configuração do app
+(`%APPDATA%\com.daltonfontes.ligadaslendasassist\config.json` no Windows); veja
+`config.example.json`. Os campeões podem ser escritos pelo nome (`"Lee Sin"`) ou alias
+(`"LeeSin"`); a lista da rota vem antes da lista `default` ("Qualquer rota").
 
-```bash
-npm install
-npm run build
-npm start
-```
+Se o LoL estiver instalado num caminho fora do padrão, o app acha pelo processo do cliente;
+dá para forçar com a variável `LOL_INSTALL_DIR`.
 
-Abra `http://127.0.0.1:3737`, ajuste as opções no painel e clique em **Salvar**
-(fica gravado em `config.json`; veja `config.example.json`). Os campeões podem ser
-escritos pelo nome (`"Lee Sin"`) ou alias (`"LeeSin"`). A lista da rota vem antes da lista
-`default` ("Qualquer rota").
+## Desenvolver
 
-Variáveis de ambiente opcionais:
-
-- `LOL_INSTALL_DIR` — pasta de instalação do LoL, se não estiver no caminho padrão.
-- `LOL_ASSIST_CONFIG` — caminho do arquivo de configuração.
-- `LOL_ASSIST_PORT` — porta do painel.
-
-## Como funciona
-
-```
-src/
-  lcu/credentials.ts   acha porta e token (linha de comando do LeagueClientUx ou lockfile)
-  lcu/http.ts          HTTPS para 127.0.0.1 validando a CA da Riot (certs/riotgames.pem)
-  lcu/client.ts        REST + WebSocket WAMP (assina OnJsonApiEvent)
-  features/autoAccept.ts   /lol-matchmaking/v1/ready-check
-  features/champSelect.ts  /lol-champ-select/v1/session (decisão pura + execução)
-  live/liveGame.ts     polling de https://127.0.0.1:2999/liveclientdata/allgamedata
-  live/objectives.ts   timers de objetivos (valores em OBJECTIVE_TIMES)
-  server/dashboard.ts  painel local com Server-Sent Events
-  assistant.ts         ciclo de vida: conecta, segue a fase do jogo, reconecta
-```
-
-- O painel só escuta em `127.0.0.1`, recusa requisições com `Host` diferente de localhost
-  (DNS rebinding) e só aceita alterar a configuração com `Content-Type: application/json`.
-- Os tempos de objetivos mudam entre patches: ajuste `OBJECTIVE_TIMES` em
-  `src/live/objectives.ts` se necessário.
-
-## Desenvolvimento
+Requisitos: [Rust](https://rustup.rs) estável, Node.js 20+ (só para o CLI do Tauri) e os
+[pré-requisitos do Tauri](https://tauri.app/start/prerequisites/) do seu sistema
+(no Windows, o WebView2 já vem instalado no 10/11).
 
 ```bash
-npm test        # testes (vitest)
-npm run typecheck
+npm install          # instala o CLI do Tauri
+npm run dev          # abre o app em modo desenvolvimento
+npm run build        # gera o instalador em src-tauri/target/release/bundle
+
+cd src-tauri
+cargo test           # testes
+cargo clippy --all-targets -- -D warnings
 ```
+
+## Estrutura
+
+```
+ui/                        interface (HTML/CSS/JS puro, sem bundler)
+src-tauri/
+  src/lib.rs               app Tauri: comandos get_state / get_config / set_config
+  src/assistant.rs         ciclo de vida: acha o cliente, segue a fase do jogo, reconecta
+  src/lcu/credentials.rs   porta e token (lockfile ou argumentos do LeagueClientUx)
+  src/lcu/tls.rs           TLS fixado na CA da Riot (certs/riotgames.pem)
+  src/lcu/client.rs        REST + WebSocket WAMP (assina OnJsonApiEvent)
+  src/features/            aceitar fila, seleção de campeões, índice de campeões
+  src/live/                Live Client Data API (porta 2999) e timers de objetivos
+```
+
+Notas:
+
+- **TLS:** o certificado do cliente é emitido para `rclient` e a CA da Riot é X.509 v1, que o
+  verificador WebPKI padrão recusa. Por isso `tls.rs` tem um verificador próprio que confere a
+  assinatura do certificado pela CA da Riot, a validade e a assinatura do handshake — não é um
+  "aceita qualquer certificado".
+- Os tempos de objetivos mudam entre patches: ajuste o módulo `times` em
+  `src-tauri/src/live/objectives.rs`.
+- A janela não tem acesso a nada além dos três comandos do app (`capabilities/default.json`)
+  e roda com uma CSP restrita.
 
 ## Aviso
 

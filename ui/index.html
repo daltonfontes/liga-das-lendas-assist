@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liga das Lendas Assist</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Liga das Lendas Assist</h1>
+  <span id="conn" class="pill">Desconectado</span>
+  <span id="phase" class="pill">—</span>
+  <span id="summoner" class="muted"></span>
+</header>
+<main>
+  <div>
+    <section id="live" class="hidden">
+      <h2>Partida ao vivo <span id="gameTime" class="muted"></span></h2>
+      <div id="timers" class="timers"></div>
+      <h2 class="mt">Dicas</h2>
+      <ul id="tips" class="tips"></ul>
+      <div id="teams" class="teams mt"></div>
+    </section>
+    <section id="champSelect" class="hidden">
+      <h2>Seleção de campeões <span id="csPhase" class="muted"></span></h2>
+      <div class="teams">
+        <div class="ORDER"><div class="team-title">Seu time</div><div class="scroll"><table id="csMine"></table></div></div>
+        <div class="CHAOS"><div class="team-title">Inimigos</div><div class="scroll"><table id="csTheirs"></table></div></div>
+      </div>
+      <p class="muted" id="csBans"></p>
+    </section>
+    <section id="idle">
+      <h2>Aguardando</h2>
+      <p class="muted" id="idleText">Abra o cliente do League of Legends. O assistente se conecta sozinho.</p>
+    </section>
+  </div>
+  <div>
+    <section>
+      <h2>Configuração</h2>
+      <form id="cfg">
+        <fieldset><legend>Fila</legend>
+          <label><input type="checkbox" name="autoAccept.enabled"> Aceitar partida automaticamente</label>
+          <label class="stack">Atraso (ms) <input type="number" name="autoAccept.delayMs" min="0" step="250"></label>
+        </fieldset>
+        <fieldset><legend>Seleção de campeões</legend>
+          <label><input type="checkbox" name="champSelect.enabled"> Selecionar campeão pela preferência</label>
+          <label><input type="checkbox" name="champSelect.autoLock"> Confirmar automaticamente</label>
+          <label><input type="checkbox" name="champSelect.autoBan"> Banir automaticamente</label>
+          <p class="muted hint">Nomes separados por vírgula, em ordem de preferência.</p>
+          <div id="prefs"></div>
+        </fieldset>
+        <fieldset><legend>Partida</legend>
+          <label><input type="checkbox" name="liveGame.enabled"> Acompanhar partida ao vivo</label>
+        </fieldset>
+        <button type="submit">Salvar</button> <span id="saved" class="muted"></span>
+      </form>
+    </section>
+    <section>
+      <h2>Atividade</h2>
+      <div id="log" class="log"></div>
+    </section>
+  </div>
+</main>
+<script src="main.js"></script>
+</body>
+</html>
