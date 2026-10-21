@@ -172,6 +172,8 @@ function renderSelect(s) {
   $("assistant-avatar").replaceWith(assistantAvatar);
   $("assistant-title").textContent = paused ? "Automação pausada nesta seleção" : a?.title ?? "";
   $("assistant-detail").textContent = paused ? "Você escolhe manualmente. Retome quando quiser." : a?.detail ?? "";
+  $("assistant-runes").textContent = cs.runes ?? "";
+  $("assistant-runes").classList.toggle("hidden", !cs.runes);
   $("pause").classList.toggle("hidden", !config.champSelect?.enabled);
   $("pause").classList.toggle("active", paused);
   $("pause").textContent = paused ? "Retomar automação" : "Pausar automação";
@@ -197,7 +199,7 @@ $("pause").addEventListener("click", () => invoke("set_automation_paused", { pau
 
 function renderLog(log) {
   const kind = (m) => /Erro|Não foi possível|inválid/.test(m) ? "err"
-    : /Confirmado|Banido|aceita\.|Conectado/.test(m) ? "ok"
+    : /Confirmado|Banido|aceita\.|Conectado|Runas importadas/.test(m) ? "ok"
     : /Partida encontrada|pausada/.test(m) ? "warn" : "info";
   $("log").replaceChildren(...[...log].reverse().map((l) => el("div", { class: `log-entry ${kind(l.message)}` },
     el("time", {}, new Date(l.time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })),

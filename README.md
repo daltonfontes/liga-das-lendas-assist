@@ -11,6 +11,7 @@ Conversa com a API local do cliente (LCU — *League Client Update*) e com a
 | --- | --- |
 | Fila | **Aceita a partida** automaticamente (com atraso configurável; se você recusar antes, ele respeita). |
 | Seleção de campeões | Mostra seu time, inimigos e bans com os ícones dos campeões (vindos do próprio cliente), e um card com o plano do assistente (com botão para **pausar a automação** só naquela seleção). **Seleciona/declara** seu campeão pela lista de preferência da sua rota, **confirma** e **bane** automaticamente (opcional). Pula campeões banidos, já escolhidos, que você não tem, e nunca bane o que um aliado declarou. Se você já selecionou algo manualmente, ele respeita. |
+| Runas | Ao confirmar o campeão, **importa as runas recomendadas pelo próprio cliente** para a sua rota numa página "Assist · campeão" e a ativa. Só essa página é substituída depois — suas páginas ficam intactas. Se não houver espaço para uma página nova, o app avisa no log. |
 | Em partida | Timers de **Dragão/Ancião, Arauto, Barão e inibidores**, placar de dragões, KDA/CS/CS por minuto, ouro em itens por time, tempo de renascimento dos inimigos e **dicas** (janela de objetivo com inimigos mortos, objetivo nascendo, farm baixo, vantagem/desvantagem de ouro). |
 
 O assistente detecta sozinho quando o cliente abre/fecha e reconecta.
@@ -53,7 +54,7 @@ src-tauri/
   src/lcu/credentials.rs   porta e token (lockfile ou argumentos do LeagueClientUx)
   src/lcu/tls.rs           TLS fixado na CA da Riot (certs/riotgames.pem)
   src/lcu/client.rs        REST + WebSocket WAMP (assina OnJsonApiEvent)
-  src/features/            aceitar fila, seleção de campeões, índice de campeões
+  src/features/            aceitar fila, seleção de campeões, runas, ícones e índice de campeões
   src/live/                Live Client Data API (porta 2999) e timers de objetivos
 ```
 

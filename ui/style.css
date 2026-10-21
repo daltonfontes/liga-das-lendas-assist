@@ -151,6 +151,8 @@ tr.dead .avatar img { filter: grayscale(1); }
 .assistant-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
 .assistant-card.paused { border-color: #4A3F24; }
 .assistant-text { flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px; }
+.runes-line { display: flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--gold-light); font-weight: 600; }
+.runes-line::before { content: ""; width: 8px; height: 8px; transform: rotate(45deg); border: 1.5px solid currentColor; }
 .btn-outline { min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line-strong); background: transparent; font-weight: 600; cursor: pointer; }
 .btn-outline:hover { border-color: var(--gold); }
 .btn-outline.active { border-color: var(--gold); background: var(--gold); color: var(--bg); }

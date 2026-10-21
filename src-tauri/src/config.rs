@@ -9,6 +9,7 @@ pub struct AssistantConfig {
     pub auto_accept: AutoAcceptConfig,
     pub champ_select: ChampSelectConfig,
     pub live_game: LiveGameConfig,
+    pub runes: RunesConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,6 +32,19 @@ pub struct ChampSelectConfig {
     /// (nome ou alias) em ordem de preferência.
     pub picks: HashMap<String, Vec<String>>,
     pub bans: HashMap<String, Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RunesConfig {
+    /// Importa as runas recomendadas pelo cliente ao confirmar o campeão.
+    pub enabled: bool,
+}
+
+impl Default for RunesConfig {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

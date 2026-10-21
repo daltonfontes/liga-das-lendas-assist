@@ -71,6 +71,7 @@
           <div class="assistant-text">
             <div id="assistant-title" class="strong"></div>
             <div id="assistant-detail" class="soft"></div>
+            <div id="assistant-runes" class="runes-line small"></div>
           </div>
           <button type="button" id="pause" class="btn-outline"></button>
         </section>
@@ -122,6 +123,13 @@
             </div>
             <p class="muted small hint">A lista da rota vem antes de “Qualquer rota”. Campeões banidos, já escolhidos ou que você não tem são pulados. Enter adiciona.</p>
             <datalist id="champ-list"></datalist>
+          </section>
+
+          <section class="card" aria-label="Runas">
+            <label class="row">
+              <span class="row-text"><span class="strong">Importar runas recomendadas</span><span class="muted small">Ao confirmar o campeão, cria a página “Assist · campeão” com as runas que o cliente recomenda para a sua rota. Só essa página é substituída.</span></span>
+              <input type="checkbox" role="switch" name="runes.enabled" class="switch-input"><span class="switch" aria-hidden="true"></span>
+            </label>
           </section>
 
           <section class="card" aria-label="Partida">

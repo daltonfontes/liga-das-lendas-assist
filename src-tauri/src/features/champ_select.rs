@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::champions::ChampionIndex;
+use super::runes::RuneImporter;
 use crate::config::{AssistantConfig, ChampSelectConfig};
 use crate::lcu::client::LcuClient;
 use crate::state::Store;
@@ -255,6 +256,8 @@ pub struct ChampSelectView {
     pub their_team: Vec<EnemyView>,
     pub bans: Vec<String>,
     pub assistant: Option<AssistantView>,
+    /// Situação da importação de runas, ex.: "Runas: Eletrocutar".
+    pub runes: Option<String>,
 }
 
 pub fn build_view(session: &Session, champions: &ChampionIndex) -> ChampSelectView {
@@ -301,6 +304,7 @@ pub fn build_view(session: &Session, champions: &ChampionIndex) -> ChampSelectVi
             .map(|id| champions.name(id).unwrap_or_else(|| id.to_string()))
             .collect(),
         assistant: None,
+        runes: None,
     }
 }
 
@@ -370,9 +374,37 @@ pub struct ChampSelectAssistant {
     last_applied: Option<Decision>,
     pickable: Option<HashSet<i64>>,
     bannable: Option<HashSet<i64>>,
+    runes: RuneImporter,
 }
 
 impl ChampSelectAssistant {
+    /// Importa as runas assim que o campeão do jogador local é confirmado.
+    async fn import_runes(
+        &mut self,
+        session: &Session,
+        lcu: &LcuClient,
+        store: &Store,
+        champions: &ChampionIndex,
+    ) {
+        let Some(me) = session
+            .my_team
+            .iter()
+            .find(|p| p.cell_id == session.local_player_cell_id)
+        else {
+            return;
+        };
+        if session.slot_state(me) != "confirmed" || me.champion_id <= 0 {
+            return;
+        }
+        let name = champions
+            .name(me.champion_id)
+            .unwrap_or_else(|| me.champion_id.to_string());
+        let position = session.local_position();
+        self.runes
+            .import(lcu, store, me.champion_id, &name, position.as_deref())
+            .await;
+    }
+
     pub fn reset(&mut self, store: &Store) {
         *self = Self::default();
         // A pausa vale só para a seleção em que foi pedida.
@@ -390,7 +422,11 @@ impl ChampSelectAssistant {
         champions: &ChampionIndex,
         config: &AssistantConfig,
     ) {
+        if config.runes.enabled {
+            self.import_runes(&session, lcu, store, champions).await;
+        }
         let mut view = build_view(&session, champions);
+        view.runes = self.runes.status.clone();
         let cfg = &config.champ_select;
         if !cfg.enabled {
             view.assistant = Some(AssistantView {
